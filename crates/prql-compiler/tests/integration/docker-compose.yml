@@ -61,3 +61,18 @@ services:
       # ClickHouse can load csv only from user_files_path (default `/var/lib/clickhouse/user_files/`)
       # https://clickhouse.com/docs/en/operations/server-configuration-parameters/settings#server_configuration_parameters-user_scripts_path
       - ./data/chinook:/var/lib/clickhouse/user_files/chinook/:ro
+  bigquery:
+    image: ghcr.io/goccy/bigquery-emulator:latest
+    platform: linux/amd64
+    ports:
+      - "9050:9050"
+    environment:
+      STORAGE_EMULATOR_HOST: http://gcs:4443
+    command: --project=test
+  gcs:
+    image: fsouza/fake-gcs-server:1
+    expose:
+      - 4443
+    volumes:
+      - ./data/chinook:/data:ro
+    command: -scheme http
