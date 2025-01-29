@@ -15,13 +15,13 @@ use anyhow::bail;
 use anyhow::Result;
 use ariadne::Source;
 use clap::{CommandFactory, Parser, Subcommand, ValueHint};
-use clap_verbosity_flag::LogLevel;
 use clio::has_extension;
 use clio::Output;
 use is_terminal::IsTerminal;
 use itertools::Itertools;
 use schemars::schema_for;
 
+use prqlc::compiler_version;
 use prqlc::debug;
 use prqlc::internal::pl_to_lineage;
 use prqlc::ir::{pl, rq};
@@ -44,10 +44,12 @@ pub fn main() -> color_eyre::eyre::Result<()> {
     let mut cli = Cli::parse();
 
     // redirect all log messages into the [debug::DebugLog]
-    static LOGGER: debug::MessageLogger = debug::MessageLogger;
-    log::set_logger(&LOGGER)
-        .map(|()| log::set_max_level(cli.verbose.log_level_filter()))
-        .unwrap();
+    if has_debug_log(&cli) {
+        static LOGGER: debug::MessageLogger = debug::MessageLogger;
+        log::set_logger(&LOGGER)
+            .map(|()| log::set_max_level(log::LevelFilter::max()))
+            .unwrap();
+    }
 
     color_eyre::install()?;
     cli.color.write_global();
@@ -81,13 +83,18 @@ struct Cli {
     command: Command,
     #[command(flatten)]
     color: colorchoice_clap::Color,
+}
 
-    #[command(flatten)]
-    verbose: clap_verbosity_flag::Verbosity<LoggingHelp>,
+/// This seems to be required because passing `compiler_version()` directly to
+/// `command` fails because it's not a string, and we can't seem to convert it
+/// to a string inline.
+pub fn compiler_version_str() -> &'static str {
+    static COMPILER_VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    COMPILER_VERSION.get_or_init(|| compiler_version().to_string())
 }
 
 #[derive(Subcommand, Debug, Clone)]
-#[command(name = env!("CARGO_PKG_NAME"), about, version)]
+#[command(name = env!("CARGO_PKG_NAME"), about, version=compiler_version_str())]
 enum Command {
     /// Parse into PL AST
     Parse {
@@ -222,10 +229,15 @@ enum DebugCommand {
 
 /// Experimental commands are prone to change
 #[derive(Subcommand, Debug, Clone)]
-pub enum ExperimentalCommand {
+enum ExperimentalCommand {
     /// Generate Markdown documentation
     #[command(name = "doc")]
-    GenerateDocs(IoArgs),
+    GenerateDocs {
+        #[command(flatten)]
+        io_args: IoArgs,
+        #[arg(value_enum, long, default_value = "markdown")]
+        format: DocsFormat,
+    },
 
     /// Syntax highlight
     #[command(name = "highlight")]
@@ -245,35 +257,10 @@ pub struct IoArgs {
     main_path: Option<String>,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
-struct LoggingHelp;
-
-impl LogLevel for LoggingHelp {
-    /// By default, this will only report errors.
-    fn default() -> Option<log::Level> {
-        Some(log::Level::Error)
-    }
-    fn verbose_help() -> Option<&'static str> {
-        Some("Increase logging verbosity")
-    }
-
-    fn verbose_long_help() -> Option<&'static str> {
-        Some(
-            r#"More `v`s, More vebose logging:
--v shows warnings
--vv shows info
--vvv shows debug
--vvvv shows trace"#,
-        )
-    }
-
-    fn quiet_help() -> Option<&'static str> {
-        Some("Silences logging output")
-    }
-
-    fn quiet_long_help() -> Option<&'static str> {
-        Some("Silences logging output")
-    }
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum DocsFormat {
+    Html,
+    Markdown,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -438,10 +425,17 @@ impl Command {
                     Format::Yaml => serde_yaml::to_string(&fc)?.into_bytes(),
                 }
             }
-            Command::Experimental(ExperimentalCommand::GenerateDocs(_)) => {
+            Command::Experimental(ExperimentalCommand::GenerateDocs { format, .. }) => {
                 let module_ref = prql_to_pl_tree(sources)?;
 
-                docs_generator::generate_markdown_docs(module_ref.stmts).into_bytes()
+                match format {
+                    DocsFormat::Html => {
+                        docs_generator::generate_html_docs(module_ref.stmts).into_bytes()
+                    }
+                    DocsFormat::Markdown => {
+                        docs_generator::generate_markdown_docs(module_ref.stmts).into_bytes()
+                    }
+                }
             }
             Command::Experimental(ExperimentalCommand::Highlight(_)) => {
                 let s = sources.sources.values().exactly_one().or_else(|_| {
@@ -499,7 +493,7 @@ impl Command {
             | Debug(DebugCommand::Annotate(io_args) | DebugCommand::Lineage { io_args, .. }) => {
                 io_args
             }
-            Experimental(ExperimentalCommand::GenerateDocs(io_args)) => io_args,
+            Experimental(ExperimentalCommand::GenerateDocs { io_args, .. }) => io_args,
             Experimental(ExperimentalCommand::Highlight(io_args)) => io_args,
             _ => unreachable!(),
         };
@@ -535,12 +529,24 @@ impl Command {
             | Debug(DebugCommand::Annotate(io_args) | DebugCommand::Lineage { io_args, .. }) => {
                 io_args.output.clone()
             }
-            Experimental(ExperimentalCommand::GenerateDocs(io_args)) => io_args.output.clone(),
+            Experimental(ExperimentalCommand::GenerateDocs { io_args, .. }) => {
+                io_args.output.clone()
+            }
             Experimental(ExperimentalCommand::Highlight(io_args)) => io_args.output.clone(),
             _ => unreachable!(),
         };
         output.write_all(data)
     }
+}
+
+fn has_debug_log(cli: &Cli) -> bool {
+    matches!(
+        cli.command,
+        Command::Compile {
+            debug_log: Some(_),
+            ..
+        }
+    )
 }
 
 pub fn write_log(path: &std::path::Path) -> Result<()> {
@@ -662,14 +668,14 @@ sort full
         )
         .unwrap();
         assert_snapshot!(String::from_utf8(output).unwrap().trim(),
-        @r###"
+        @r#"
         from initial_table
         select {f = first_name, l = last_name, gender}  # [f, l, initial_table.gender]
         derive full_name = f"{f} {l}"                   # [f, l, initial_table.gender, full_name]
         take 23                                         # [f, l, initial_table.gender, full_name]
         select {f"{l} {f}", full = full_name, gender}   # [?, full, initial_table.gender]
         sort full                                       # [?, full, initial_table.gender]
-        "###);
+        "#);
     }
 
     /// Check we get an error on a bad input
@@ -689,7 +695,7 @@ sort full
             "",
         );
 
-        assert_snapshot!(&result.unwrap_err().to_string(), @r###"
+        assert_snapshot!(&result.unwrap_err().to_string(), @r"
         Error:
            ╭─[:1:1]
            │
@@ -697,7 +703,7 @@ sort full
            │ ──┬─
            │   ╰─── Unknown name `asdf`
         ───╯
-        "###);
+        ");
     }
 
     #[test]
@@ -723,7 +729,7 @@ sort full
             "main",
         )
         .unwrap();
-        assert_snapshot!(String::from_utf8(result).unwrap().trim(), @r###"
+        assert_snapshot!(String::from_utf8(result).unwrap().trim(), @r"
         WITH x AS (
           SELECT
             y,
@@ -735,7 +741,7 @@ sort full
           y
         FROM
           x
-        "###);
+        ");
     }
 
     #[test]
@@ -750,7 +756,7 @@ sort full
         )
         .unwrap();
 
-        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r###"
+        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r"
         name: Project
         stmts:
         - VarDef:
@@ -777,7 +783,7 @@ sort full
                   span: 1:9-17
               span: 1:0-17
           span: 1:0-17
-        "###);
+        ");
     }
     #[test]
     fn lex() {
@@ -793,7 +799,7 @@ sort full
 
         // TODO: terser output; maybe serialize span as `0..4`? Remove the
         // `!Ident` complication?
-        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r###"
+        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r"
         - kind: Start
           span:
             start: 0
@@ -818,7 +824,7 @@ sort full
           span:
             start: 16
             end: 17
-        "###);
+        ");
     }
     #[test]
     fn lex_nested_enum() {
@@ -836,7 +842,7 @@ sort full
         )
         .unwrap();
 
-        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r###"
+        assert_snapshot!(String::from_utf8(output).unwrap().trim(), @r"
         - kind: Start
           span:
             start: 0
@@ -870,6 +876,6 @@ sort full
           span:
             start: 44
             end: 45
-        "###);
+        ");
     }
 }

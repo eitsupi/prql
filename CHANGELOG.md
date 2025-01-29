@@ -1,10 +1,60 @@
 # PRQL Changelog
 
+## 0.13.3 — 2025-01-25
+
+0.13.3 is a small release containing a few bug fixes and improvements. It has 86
+commits from 10 contributors. Selected changes:
+
+**Fixes**:
+
+- Sort steps in sub-pipelines no longer cause a column lookup error
+  (@lukapeschke, #5066)
+- Dereferencing of sort columns when rendering SQL now done in context of main
+  pipeline (@kgutwin, #5098)
+
+**New Contributors**:
+
+- @lukapeschke, with #5066
+
+## 0.13.2
+
+0.13.2 is a tiny release to fix an issue publishing 0.13.1 to crates.io.
+
+## 0.13.1
+
+0.13.1 is a small release containing a few bug fixes and improvements. Velocity
+has slowed down a bit in recent months, we're still hoping to finish the new
+resolver and the new formatter in the near future.
+
+It has 97 commits from 10 contributors. Selected changes:
+
+**Features**:
+
+- Add a option to the experimental documentation generator to output the docs in
+  HTML format. The option is given using the `--format=html` option.
+  (@vanillajonathan, 4791)
+
+- The version of the library is now read from `git describe`. This doesn't
+  affect libraries built on git tags (such as our releases), only those built
+  when developing. When reporting bugs, this helps identify the exact version.
+  (@max-sixty & @m-span, #4804)
+
+**Fixes**:
+
+- Raw strings (`r"..."`) are retained through `prqlc fmt` (@max-sixty, #4848)
+
+- Strings containing an odd contiguous number of quotes are now delimited by an
+  odd number of quotes when being formatted. The previous implementation would
+  use an even number, which is invalid PRQL. (@max-sixty, #4850)
+
+- A few more keywords are quoted, such as `user`, which is a reserved keyword in
+  PostgreSQL. (@max-sixty)
+
 ## 0.13.0 — 2024-07-25
 
 0.13.0 brings a new debug logging framework, a big refactor of the parser, a new
-highlighter, a few bug fixes, and lots of other changes. It has 153 commits from
-11 contributors.
+highlighter, an `**` operator for exponentiation, a few bug fixes, and lots of
+other changes. It has 153 commits from 11 contributors.
 
 Our work continues on rewriting the resolver and completing `prqlc fmt`.
 
@@ -25,6 +75,8 @@ Selected changes:
 
   This is a small breaking change. The new behavior matches the existing
   documentation. (@max-sixty, #4775)
+
+- A new `**` operator for exponentiation. (@aljazerzen & @max-sixty, #4125)
 
 **Features**:
 
@@ -71,6 +123,8 @@ Selected changes:
 - New benchmarks (@max-sixty, #4654)
 
 **New Contributors**:
+
+- @Globidev, with #4598
 
 ## 0.12.2 — 2024-06-10
 
@@ -1236,8 +1290,8 @@ below in this release).
 
 **Documentation**:
 
-[This release, the changelog only contains a subset of
-documentation improvements]
+[This release, the changelog only contains a subset of documentation
+improvements]
 
 - Add docs on aliases in
   [Select](https://prql-lang.org/book/reference/stdlib/transforms/select.html)

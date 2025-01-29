@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 use once_cell::sync::Lazy;
 
@@ -27,7 +28,7 @@ impl WriteSource for pr::Expr {
         let mut r = String::new();
 
         if let Some(alias) = &self.alias {
-            r += opt.consume(alias)?;
+            r += opt.consume(&write_ident_part(alias))?;
             r += opt.consume(" = ")?;
             opt.unbound_expr = false;
         }
@@ -376,7 +377,7 @@ pub fn write_ident_part(s: &str) -> String {
     if VALID_PRQL_IDENT.is_match(s) && !KEYWORDS.contains(s) {
         s.to_string()
     } else {
-        format!("`{}`", s)
+        format!("`{}`", s).into()
     }
 }
 
@@ -576,14 +577,14 @@ mod test {
             exprs: vec![short.clone(), long.clone(), long, short.clone()],
         }));
         // colons are a workaround to avoid trimming
-        assert_snapshot!(pipeline.write(opt.clone()).unwrap(), @r###"
+        assert_snapshot!(pipeline.write(opt.clone()).unwrap(), @r"
         (
             short
             some_really_long_and_really_long_name
             some_really_long_and_really_long_name
             short
           )
-        "###);
+        ");
 
         // sometimes, there is just not enough space
         opt.rem_width = 4;
@@ -635,6 +636,15 @@ mod test {
 aggregate average_country_salary = (
   average salary
 )"#,
+        );
+    }
+
+    #[test]
+    fn test_alias() {
+        assert_is_formatted(
+            r#"
+from artists
+select {`customer name` = foo, x = bar.baz}"#,
         );
     }
 

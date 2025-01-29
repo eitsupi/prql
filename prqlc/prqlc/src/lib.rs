@@ -1,3 +1,5 @@
+//! # prqlc
+//!
 //! Compiler for PRQL language. Targets SQL and exposes PL and RQ abstract
 //! syntax trees.
 //!
@@ -31,6 +33,8 @@
 //!
 //!            SQL
 //! ```
+//!
+#![doc = include_str!("../ARCHITECTURE.md")]
 //!
 //! ## Common use-cases
 //!
@@ -90,14 +94,6 @@
 //! [profile.release.package.prqlc]
 //! strip = "debuginfo"
 //! ```
-
-#![forbid(unsafe_code)]
-// Our error type is 128 bytes, because it contains 5 strings & an Enum, which
-// is exactly the default warning level. Given we're not that performance
-// sensitive, it's fine to ignore this at the moment (and not worth having a
-// clippy config file for a single setting). We can consider adjusting it as a
-// yak-shaving exercise in the future.
-#![allow(clippy::result_large_err)]
 
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
@@ -532,7 +528,7 @@ mod tests {
 
     #[test]
     fn test_target_from_str() {
-        assert_debug_snapshot!(Target::from_str("sql.postgres"), @r###"
+        assert_debug_snapshot!(Target::from_str("sql.postgres"), @r"
         Ok(
             Sql(
                 Some(
@@ -540,9 +536,9 @@ mod tests {
                 ),
             ),
         )
-        "###);
+        ");
 
-        assert_debug_snapshot!(Target::from_str("sql.poostgres"), @r###"
+        assert_debug_snapshot!(Target::from_str("sql.poostgres"), @r#"
         Err(
             Error {
                 kind: Error,
@@ -555,9 +551,9 @@ mod tests {
                 code: None,
             },
         )
-        "###);
+        "#);
 
-        assert_debug_snapshot!(Target::from_str("postgres"), @r###"
+        assert_debug_snapshot!(Target::from_str("postgres"), @r#"
         Err(
             Error {
                 kind: Error,
@@ -570,7 +566,7 @@ mod tests {
                 code: None,
             },
         )
-        "###);
+        "#);
     }
 
     /// Confirm that all target names can be parsed.

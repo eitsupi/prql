@@ -1,6 +1,7 @@
 ---
 source: web/book/tests/documentation/book.rs
 expression: "from artists\nderive {\n  single        =   'hello world',\n  double        =   \"hello world\",\n  double_triple = \"\"\"hello world\"\"\",\n}\n"
+snapshot_kind: text
 ---
 SELECT
   *,
@@ -9,4 +10,3 @@ SELECT
   'hello world' AS double_triple
 FROM
   artists
-

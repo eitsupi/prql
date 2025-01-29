@@ -64,7 +64,7 @@ For more on the language, more examples & comparisons with SQL, visit
 [prql-lang.org][prql website]. To experiment with PRQL in the browser, check out
 [PRQL Playground][prql playground].
 
-## Current Status - June 2024
+## Current Status - October 2024
 
 PRQL is being actively developed by a growing community. It's ready to use by
 the intrepid, either with our supported integrations, or within your own tools,
@@ -93,7 +93,7 @@ We're also spending time thinking about:
 - Making it really easy to start using PRQL. We're doing that by building
   integrations with tools that folks already use; for example a VS Code
   extension, Jupyter integration, and the recent
-  [qStudio](https://www.timestored.com/qstudio/prql-ide) integration. If there
+  [QStudio](https://www.timestored.com/qstudio/prql-ide) integration. If there
   are tools you're familiar with that you think would be open to integrating
   with PRQL, please let us know in an issue.
 - Whether all our initial decisions were correct — for example

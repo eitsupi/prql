@@ -23,9 +23,10 @@ repository = "https://github.com/PRQL/prql"
 # This isn't tested since `cargo-msrv` doesn't support workspaces; instead we
 # test `metadata.msrv` in `prqlc`
 rust-version = "1.69.0"
-version = "0.13.0"
+version = "0.13.3"
 
 [profile.release]
+lto = true
 # Optimize for binary size in releases of all crates,
 # since compiler is fast enough as it is (for now).
 opt-level = "s"
@@ -45,13 +46,17 @@ allow-branch = ["*"]
 consolidate-commits = true
 
 [workspace.dependencies]
-anyhow = "1.0.86"
-enum-as-inner = "0.6.0"
-insta = {version = "1.39.0", features = ["colors", "glob", "yaml"]}
+anyhow = "1.0.95"
+arrow = { version = "53", features = [
+  "pyarrow",
+  "prettyprint",
+], default-features = false }
+enum-as-inner = "0.6.1"
+insta = { version = "1.41.1", features = ["colors", "glob", "yaml", "filters"] }
 insta-cmd = "0.6.0"
 itertools = "0.13.0"
 log = "0.4.22"
-pyo3 = {version = "0.20.1", features = ["abi3-py37", "anyhow"]}
+pyo3 = {version = "0.22.2", features = ["abi3-py37", "anyhow"]}
 pyo3-build-config = "0.22.2"
 schemars = "1.0.0-alpha.2"
 semver = {version = "1.0.23", features = ["serde"]}

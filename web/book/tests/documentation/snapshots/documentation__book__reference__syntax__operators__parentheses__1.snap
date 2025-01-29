@@ -1,6 +1,7 @@
 ---
 source: web/book/tests/documentation/book.rs
 expression: "from employees\nderive total_distance = sum distance\n"
+snapshot_kind: text
 ---
 Error:
    ╭─[:2:29]
@@ -9,4 +10,3 @@ Error:
    │                             ────┬───
    │                                 ╰───── Unknown name `distance`
 ───╯
-

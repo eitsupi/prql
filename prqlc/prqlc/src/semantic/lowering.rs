@@ -6,6 +6,7 @@ use enum_as_inner::EnumAsInner;
 use itertools::Itertools;
 use prqlc_parser::generic::{InterpolateItem, Range, SwitchCase};
 use prqlc_parser::lexer::lr::Literal;
+use semver::{Prerelease, Version};
 
 use crate::ir::decl::{self, DeclKind, Module, RootModule, TableExpr};
 use crate::ir::generic::{ColumnSort, WindowFrame};

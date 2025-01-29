@@ -205,6 +205,7 @@ fn translate_select_pipeline(
                 )),
                 asc: None,
                 nulls_first: None,
+                with_fill: None,
             });
         }
     }
@@ -212,7 +213,14 @@ fn translate_select_pipeline(
     ctx.pop_query();
 
     Ok(sql_ast::Query {
-        order_by,
+        order_by: if order_by.is_empty() {
+            None
+        } else {
+            Some(sql_ast::OrderBy {
+                exprs: order_by,
+                interpolate: None,
+            })
+        },
         limit,
         offset,
         fetch,
@@ -308,6 +316,7 @@ fn translate_relation_expr(relation_expr: RelationExpr, ctx: &mut Context) -> Re
                 },
                 args: None,
                 with_hints: vec![],
+                with_ordinality: false,
                 version: None,
                 partitions: vec![],
             }
@@ -348,6 +357,7 @@ fn translate_join(
             JoinSide::Right => JoinOperator::RightOuter(constraint),
             JoinSide::Full => JoinOperator::FullOuter(constraint),
         },
+        global: false,
     })
 }
 
@@ -556,7 +566,7 @@ fn default_query(body: sql_ast::SetExpr) -> sql_ast::Query {
     sql_ast::Query {
         with: None,
         body: Box::new(body),
-        order_by: Vec::new(),
+        order_by: None,
         limit: None,
         offset: None,
         fetch: None,
@@ -572,6 +582,7 @@ fn default_select() -> Select {
     Select {
         distinct: None,
         top: None,
+        top_before_distinct: false,
         projection: Vec::new(),
         into: None,
         from: Vec::new(),
@@ -600,7 +611,7 @@ fn simple_table_alias(name: sql_ast::Ident) -> TableAlias {
 
 fn query_to_set_expr(query: sql_ast::Query, context: &mut Context) -> Box<SetExpr> {
     let is_simple = query.with.is_none()
-        && query.order_by.is_empty()
+        && query.order_by.is_none()
         && query.limit.is_none()
         && query.offset.is_none()
         && query.fetch.is_none()
@@ -658,7 +669,7 @@ mod test {
 
         let sql_ast = crate::tests::compile(query).unwrap();
 
-        assert_snapshot!(sql_ast, @r###"
+        assert_snapshot!(sql_ast, @r"
         WITH table_0 AS (
           SELECT
             title,
@@ -676,7 +687,7 @@ mod test {
           table_0
         GROUP BY
           title
-        "###);
+        ");
     }
 
     #[test]
@@ -699,7 +710,7 @@ mod test {
 
         let sql_ast = crate::tests::compile(query).unwrap();
 
-        assert_snapshot!(sql_ast, @r###"
+        assert_snapshot!(sql_ast, @r"
         WITH table_0 AS (
           SELECT
             *,
@@ -714,7 +725,7 @@ mod test {
           table_0
         WHERE
           country = 'USA'
-        "###);
+        ");
     }
 
     #[test]
@@ -725,7 +736,7 @@ mod test {
         filter (average bar) > 3
         "#;
 
-        assert_snapshot!(crate::tests::compile(query).unwrap(), @r###"
+        assert_snapshot!(crate::tests::compile(query).unwrap(), @r"
         WITH table_0 AS (
           SELECT
             *,
@@ -739,6 +750,6 @@ mod test {
           table_0
         WHERE
           _expr_0 > 3
-        "###);
+        ");
     }
 }
